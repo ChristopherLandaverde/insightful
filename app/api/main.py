@@ -13,4 +13,10 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
+    """
+    Asynchronous function that returns a greeting message.
+
+    Returns:
+        dict: A dictionary containing a greeting message.
+    """
     return {"message": "Hello World"}
