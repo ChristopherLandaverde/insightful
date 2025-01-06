@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import relationship
 
 Base = declarative_base()
@@ -72,4 +72,3 @@ class TestData(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     test = relationship("BaseTest", back_populates="data")
 
-BaseTest.data = relationship("TestData", back_populates='test')
