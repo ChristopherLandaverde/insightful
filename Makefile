@@ -40,6 +40,10 @@ drop-db:
 	@PGPASSWORD=$(DB_PASSWORD) psql -U $(DB_USER) -h $(DB_HOST) -p $(DB_PORT) -d postgres -c "DROP DATABASE IF EXISTS $(DB_NAME);"
 	@echo "Database $(DB_NAME) dropped successfully!"
 
+# Show databases
+show-databases:# ...existing code...
+	@PGPASSWORD=$(DB_PASS) psql -U $(DB_USER) -h $(DB_HOST) -p $(DB_PORT) -c "\l"
+
 # Connect to the database
 connect-db:
 	@echo "Connecting to database $(DB_NAME)..."
@@ -56,6 +60,10 @@ status:
 	@echo "Checking PostgreSQL service status..."
 	@pg_isready -h $(DB_HOST) -p $(DB_PORT) -U $(DB_USER)
 
+connect:
+	@echo "Connecting to database $(DB_NAME)..."
+
+
 
 # Run the FastAPI app
 run:
@@ -65,8 +73,13 @@ run:
 # Help menu
 help:
 	@echo "Available commands:"
-	@echo "  make create-db    - Create the PostgreSQL database"
+	@echo " make create-db    - Create the PostgreSQL database"
 	@echo "  make drop-db      - Drop the PostgreSQL database"
 	@echo "  make connect-db   - Connect to the PostgreSQL database"
 	@echo "  make migrate      - Run Alembic migrations"
 	@echo "  make status       - Check the PostgreSQL service status"
+	@echo "  make list_tables      - List all tables in the database"
+	@echo "  make describe_table   - Show structure of table"
+	@echo "  make show-databases   - List all available databases"
+	@echo "  make check_connection - Show current connection info"
+	@echo "  make run              - Start the FastAPI application"
