@@ -1,30 +1,51 @@
+import logging
 from datetime import datetime
-from typing import Optional
+from typing import Optional,List
 from fastapi import HTTPException, Depends, APIRouter
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, ConfigDict
 from app.db.base import get_db
 from app.db.models import BaseTest, TestData
 
+
+logging.basicConfig(level=logging.INFO)
+
 app = APIRouter()
 
+class TestBase(BaseModel):
+    variant:str
+    timestamp:datetime
+    conversion:bool
+    revenue:float=0.0
+    engagement_minutes:float=0.0
+
+
+class TestVariantData(BaseModel):
+    variant: str
+    conversion: bool
+    revenue: Optional[float] = 0.0
+    engagement_minutes: Optional[float] = 0.0
+    additional_data: Optional[str] = None
+
+class TestCreate(BaseModel):
+    name: str
+    description: str
+    goal_metric: str
+    test_type: str
+    desired_outcome: str
+    null_hypothesis: str
+    alternative_hypothesis: str
+    sample_size_group_a: int
+    sample_size_group_b: int
+    significance_level: float
+    power: float
+    bias_control_method: str
+    identified_confounders: str
+    success_metrics: str
+    test_variants: List[TestVariantData]  # This must be a list of TestVariantData
 # Response model for TestData
 class TestDataResponse(BaseModel):
-    """
-    TestDataResponse is a Pydantic model that represents the structure of test data.
 
-    Attributes:
-        id (int): The ID of the test data.
-        test_id (int): The ID of the test.
-        variant (str): The variant of the test.
-        timestamp (datetime): The timestamp of the test data.
-        conversion (bool): Indicates if the conversion happened.
-        revenue (float): The revenue generated.
-        engagement_minutes (float): The engagement time in minutes.
-        additional_data (Optional[str]): Any additional data related to the test.
-        created_at (datetime): When the test data was created.
-        updated_at (datetime): When the test data was last updated.
-    """
     id: int
     test_id: int
     variant: str
@@ -75,49 +96,45 @@ class TestResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 @app.post("/test/")
-def create_test(test: TestDataBase, db: Session = Depends(get_db)):
-    """
-    Create a new test and associated test data.
+def create_test(test: TestCreate, db: Session = Depends(get_db)):
+    logging.info("Incoming payload: %s", test.model_dump())
 
-    Args:
-        test (TestDataBase): The incoming test data request.
-        db (Session): The database session dependency.
 
-    Returns:
-        dict: A dictionary containing the created test and test data.
-    """
     # Create BaseTest entry
     new_test = BaseTest(
         name=test.name,
         description=test.description,
+        goal_metric=test.goal_metric,
         test_type=test.test_type,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        created_at=datetime.now(),
+        updated_at=datetime.now()
     )
     db.add(new_test)
     db.commit()
     db.refresh(new_test)
 
     # Create TestData entry
-    new_test_data = TestData(
-        test_id=new_test.id,
-        variant=test.variant,
-        timestamp=datetime.utcnow(),
-        conversion=test.conversion,
-        revenue=test.revenue,
-        engagement_minutes=test.engagement_minutes,
-        additional_data=test.additional_data,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
-    )
-    db.add(new_test_data)
+    test_data_entries=[]
+    for variant_data in test.test_variants:
+        new_test_data = TestData( 
+            test_id=new_test.id,
+            variant=variant_data.variant,
+            timestamp=datetime.now(),
+            conversion=variant_data.conversion,
+            revenue=variant_data.revenue,
+            engagement_minutes=variant_data.engagement_minutes,
+            additional_data=variant_data.additional_data,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
+        )
+        db.add(new_test_data)
+        test_data_entries.append(new_test_data)
     db.commit()
-    db.refresh(new_test_data)
 
     # Return serialized response
     return {
-        "test": TestResponse.model_validate(new_test),
-        "test_data": TestDataResponse.model_validate(new_test_data)
+    "test": TestResponse.model_validate(new_test),
+    "test_data": [TestDataResponse.model_validate(data) for data in test_data_entries]
     }
 
 @app.get("/test/{test_id}")
@@ -159,6 +176,7 @@ def soft_delete_test(test_id: int, db: Session = Depends(get_db)):
     if test is None:
         raise HTTPException(status_code=404, detail="Test not found")
     
-    test.deleted_at = datetime.utcnow()
+    test.deleted_at = datetime.now()
     db.commit()
-    return {"detail": "Test soft-deleted successfully"}
+    return {"message": "Test deleted successfully"}
+
