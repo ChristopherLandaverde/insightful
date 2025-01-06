@@ -180,3 +180,52 @@ def soft_delete_test(test_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Test deleted successfully"}
 
+@app.get("/api/test/{test_id}/metrics/basic")
+def get_test_basic_metrics(test_id: int, db: Session = Depends(get_db)):
+    """
+    Retrieve basic test metrics by test ID.
+
+    Args:
+        test_id (int): The ID of the test to retrieve metrics for.
+        db (Session): The database session dependency.
+
+    Returns:
+        dict: A dictionary containing the basic test metrics.
+
+    Raises:
+        HTTPException: If the test is not found, raises a 404 HTTP exception.
+    """
+    test = db.query(BaseTest).filter(BaseTest.id == test_id, BaseTest.deleted_at.is_(None)).first()
+    if not test:
+        raise HTTPException(status_code=404, detail="Test not found")
+    
+    test_data=db.query(TestData).filter(TestData.test_id==test_id).all()
+    if not test_data:
+        raise HTTPException(status_code=404, detail="No test data found for the test")
+    
+    metrics={}
+
+    for data in test_data:
+        variant=data.variant
+        if variant not in metrics:
+            metrics[variant]={
+                "total_revenue":0.0,
+                "total_conversion":0,
+                "total_entries":0,
+                "total_engagement_minutes":0.0
+            }
+        metrics[variant]["total_revenue"]+=data.revenue
+        metrics[variant]["total_conversion"]+=1 if data.conversion else 0
+        metrics[variant]["total_entries"]+=1
+        metrics[variant]["total_engagement_minutes"]+=data.engagement_minutes
+    
+    for variant,values in metrics.items():
+        values["conversion_rate"]=(
+            (values["total_conversion"]/values["total_entries"]) * 100
+        ) if values["total_entries"]>0 else 0.0
+        
+        values["average_engagement_minutes"]=(
+            values["total_engagement_minutes"]/values["total_entries"]
+        ) if values["total_entries"]>0 else 0.0
+    return {"test_id":test_id,"metrics":metrics}
+        

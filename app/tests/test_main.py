@@ -4,7 +4,6 @@ from app.db.base import get_db
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
 import pytest
 
 SQLALCHEMY_DATABASE_URL = "postgresql://user:password@localhost:5432/test_db"
@@ -78,6 +77,30 @@ def test_get_test():
     data = response.json()
     assert data["name"] == "Test A/B Campaign"
 
+def test_basic_metrics():
+     print(f"[DEBUG] Test ID in test_basic_metrics: {test_id}")
+     response = client.get(f"/api/test/{test_id}/metrics/basic")
+     print(f"Response content: {response.json()}")
+     assert response.status_code == 200
+     data = response.json()
+     assert data["test_id"] == test_id
+     assert "A" in data["metrics"]
+     assert data["metrics"]["A"]["total_revenue"] == 0.0
+     assert data["metrics"]["A"]["total_conversion"] == 0
+     assert data["metrics"]["A"]["total_entries"] == 1
+     assert data["metrics"]["A"]["total_engagement_minutes"] == 0.0
+     assert data["metrics"]["A"]["conversion_rate"] == 0.0
+     
+     assert data["metrics"]["A"]["average_engagement_minutes"] == 0.0
+     
+     assert "B" in data["metrics"]
+     assert data["metrics"]["B"]["total_revenue"] == 100.0
+     assert data["metrics"]["B"]["total_conversion"] == 1
+     assert data["metrics"]["B"]["total_entries"] == 1
+     assert data["metrics"]["B"]["total_engagement_minutes"] == 5.0
+     assert data["metrics"]["B"]["conversion_rate"] == 100.0
+     assert data["metrics"]["B"]["average_engagement_minutes"] == 5.0
+
 def test_soft_delete_test():
     response = client.delete(f"/test/{test_id}")
     assert response.status_code == 200
@@ -90,5 +113,6 @@ def test_soft_delete_test():
     # Verify test is not retrievable
     response = client.get(f"/test/{test_id}")
     assert response.status_code == 404
+
 
 
