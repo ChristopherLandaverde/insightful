@@ -4,12 +4,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.db.models import Base  
 
-# Database URL for SQLite
-DATABASE_URL = "postgresql://user:password@localhost:5432/test_db"
+# Database URL for PostgRES
+DATABASE_URL = "postgresql://user:password@db:5432/test_db"
+
 
 # Create the database engine
 engine = create_engine(
-    DATABASE_URL # Required for SQLite
+    DATABASE_URL # Required for POSTGRES
 )
 
 # Create a configured "SessionLocal" class
