@@ -5,14 +5,14 @@ from fastapi import HTTPException, Depends, APIRouter
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, ConfigDict
 from app.db.base import get_db
-from app.db.models import BaseTest, TestData
+from app.db.models import BaseExperiment, ExperimentData
 
 
 logging.basicConfig(level=logging.INFO)
 
 app = APIRouter()
 
-class TestBase(BaseModel):
+class ExperimentBase(BaseModel):
     variant:str
     timestamp:datetime
     conversion:bool
@@ -20,18 +20,18 @@ class TestBase(BaseModel):
     engagement_minutes:float=0.0
 
 
-class TestVariantData(BaseModel):
+class ExperimentVariantData(BaseModel):
     variant: str
     conversion: bool
     revenue: Optional[float] = 0.0
     engagement_minutes: Optional[float] = 0.0
     additional_data: Optional[str] = None
 
-class TestCreate(BaseModel):
+class ExperimentCreate(BaseModel):
     name: str
     description: str
     goal_metric: str
-    test_type: str
+    experiment_type: str
     desired_outcome: str
     null_hypothesis: str
     alternative_hypothesis: str
@@ -42,12 +42,12 @@ class TestCreate(BaseModel):
     bias_control_method: str
     identified_confounders: str
     success_metrics: str
-    test_variants: List[TestVariantData]  # This must be a list of TestVariantData
-# Response model for TestData
-class TestDataResponse(BaseModel):
+    experiment_variants: List[ExperimentVariantData]  # This must be a list of ExperimentVariantData
+# Response model for ExperimentData
+class ExperimentDataResponse(BaseModel):
 
     id: int
-    test_id: int
+    experiment_id: int
     variant: str
     timestamp: datetime
     conversion: bool
@@ -60,64 +60,64 @@ class TestDataResponse(BaseModel):
     # Enable ORM mode for SQLAlchemy serialization
     model_config = ConfigDict(from_attributes=True)
 
-# Request model for TestDataBase
-class TestDataBase(BaseModel):
+# Request model for ExperimentDataBase
+class ExperimentDataBase(BaseModel):
     """
-    TestDataBase is a Pydantic model that represents the structure of test data for incoming requests.
+    ExperimentDataBase is a Pydantic model that represents the structure of experiment data for incoming requests.
 
     Attributes:
-        name (str): The name of the test.
-        description (Optional[str]): A brief description of the test.
-        test_type (str): The type of the test.
-        variant (str): The variant of the test.
-        conversion (bool): Indicates if the test involves conversion.
-        revenue (Optional[float]): The revenue generated from the test.
+        name (str): The name of the experiment.
+        description (Optional[str]): A brief description of the experiment.
+        experiment_type (str): The type of the experiment.
+        variant (str): The variant of the experiment.
+        conversion (bool): Indicates if the experiment involves conversion.
+        revenue (Optional[float]): The revenue generated from the experiment.
         engagement_minutes (Optional[float]): The engagement time in minutes.
-        additional_data (Optional[str]): Any additional data related to the test.
+        additional_data (Optional[str]): Any additional data related to the experiment.
     """
     name: str
     description: Optional[str]
-    test_type: str
+    experiment_type: str
     variant: str
     conversion: bool
     revenue: Optional[float] = 0.0
     engagement_minutes: Optional[float] = 0.0
     additional_data: Optional[str] = None
 
-# Response model for BaseTest
-class TestResponse(BaseModel):
+# Response model for BaseExperiment
+class ExperimentResponse(BaseModel):
     id: int
     name: str
     description: Optional[str]
-    test_type: str
+    experiment_type: str
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
-@app.post("/test/")
-def create_test(test: TestCreate, db: Session = Depends(get_db)):
-    logging.info("Incoming payload: %s", test.model_dump())
+@app.post("/experiment/")
+def create_experiment(experiment: ExperimentCreate, db: Session = Depends(get_db)):
+    logging.info("Incoming payload: %s", experiment.model_dump())
 
 
-    # Create BaseTest entry
-    new_test = BaseTest(
-        name=test.name,
-        description=test.description,
-        goal_metric=test.goal_metric,
-        test_type=test.test_type,
+    # Create BaseExperiment entry
+    new_experiment = BaseExperiment(
+        name=experiment.name,
+        description=experiment.description,
+        goal_metric=experiment.goal_metric,
+        experiment_type=experiment.experiment_type,
         created_at=datetime.now(),
         updated_at=datetime.now()
     )
-    db.add(new_test)
+    db.add(new_experiment)
     db.commit()
-    db.refresh(new_test)
+    db.refresh(new_experiment)
 
-    # Create TestData entry
-    test_data_entries=[]
-    for variant_data in test.test_variants:
-        new_test_data = TestData( 
-            test_id=new_test.id,
+    # Create ExperimentData entry
+    experiment_data_entries=[]
+    for variant_data in experiment.experiment_variants:
+        new_experiment_data = ExperimentData( 
+            experiment_id=new_experiment.id,
             variant=variant_data.variant,
             timestamp=datetime.now(),
             conversion=variant_data.conversion,
@@ -127,85 +127,85 @@ def create_test(test: TestCreate, db: Session = Depends(get_db)):
             created_at=datetime.now(),
             updated_at=datetime.now()
         )
-        db.add(new_test_data)
-        test_data_entries.append(new_test_data)
+        db.add(new_experiment_data)
+        experiment_data_entries.append(new_experiment_data)
     db.commit()
 
     # Return serialized response
     return {
-    "test": TestResponse.model_validate(new_test),
-    "test_data": [TestDataResponse.model_validate(data) for data in test_data_entries]
+    "experiment": ExperimentResponse.model_validate(new_experiment),
+    "experiment_data": [ExperimentDataResponse.model_validate(data) for data in experiment_data_entries]
     }
 
-@app.get("/test/{test_id}")
-def get_test(test_id: int, db: Session = Depends(get_db)):
+@app.get("/experiment/{experiment_id}")
+def get_experiment(experiment_id: int, db: Session = Depends(get_db)):
     """
-    Retrieve a test by its ID from the database.
+    Retrieve a experiment by its ID from the database.
 
     Args:
-        test_id (int): The ID of the test to retrieve.
+        experiment_id (int): The ID of the experiment to retrieve.
         db (Session): The database session dependency.
 
     Returns:
-        dict: A dictionary containing the test data.
+        dict: A dictionary containing the experiment data.
 
     Raises:
-        HTTPException: If the test is not found, raises a 404 HTTP exception.
+        HTTPException: If the experiment is not found, raises a 404 HTTP exception.
     """
-    test = db.query(BaseTest).filter(BaseTest.id == test_id, BaseTest.deleted_at.is_(None)).first()
-    if test is None:
-        raise HTTPException(status_code=404, detail="Test not found")
-    return TestResponse.model_validate(test)
+    experiment = db.query(BaseExperiment).filter(BaseExperiment.id == experiment_id, BaseExperiment.deleted_at.is_(None)).first()
+    if experiment is None:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    return ExperimentResponse.model_validate(experiment)
 
-@app.delete("/test/{test_id}")
-def soft_delete_test(test_id: int, db: Session = Depends(get_db)):
+@app.delete("/experiment/{experiment_id}")
+def soft_delete_experiment(experiment_id: int, db: Session = Depends(get_db)):
     """
-    Soft delete a test by setting its `deleted_at` timestamp.
+    Soft delete a experiment by setting its `deleted_at` timestamp.
 
     Args:
-        test_id (int): The ID of the test to be deleted.
+        experiment_id (int): The ID of the experiment to be deleted.
         db (Session): The database session dependency.
 
     Returns:
-        dict: A message indicating that the test has been deleted.
+        dict: A message indicating that the experiment has been deleted.
 
     Raises:
-        HTTPException: If the test with the given ID is not found.
+        HTTPException: If the experiment with the given ID is not found.
     """
-    test = db.query(BaseTest).filter(BaseTest.id == test_id, BaseTest.deleted_at.is_(None)).first()
-    if test is None:
-        raise HTTPException(status_code=404, detail="Test not found")
+    experiment = db.query(BaseExperiment).filter(BaseExperiment.id == experiment_id, BaseExperiment.deleted_at.is_(None)).first()
+    if experiment is None:
+        raise HTTPException(status_code=404, detail="Experiment not found")
     
-    test.deleted_at = datetime.now()
+    experiment.deleted_at = datetime.now()
     db.commit()
-    return {"message": "Test deleted successfully"}
+    return {"message": "Experiment deleted successfully"}
 
-@app.get("/api/test/{test_id}/metrics/basic")
-def get_test_basic_metrics(test_id: int, db: Session = Depends(get_db)):
+@app.get("/api/experiment/{experiment_id}/metrics/basic")
+def get_experiment_basic_metrics(experiment_id: int, db: Session = Depends(get_db)):
     """
-    Retrieve basic test metrics by test ID.
+    Retrieve basic experiment metrics by experiment ID.
 
     Args:
-        test_id (int): The ID of the test to retrieve metrics for.
+        experiment_id (int): The ID of the experiment to retrieve metrics for.
         db (Session): The database session dependency.
 
     Returns:
-        dict: A dictionary containing the basic test metrics.
+        dict: A dictionary containing the basic experiment metrics.
 
     Raises:
-        HTTPException: If the test is not found, raises a 404 HTTP exception.
+        HTTPException: If the experiment is not found, raises a 404 HTTP exception.
     """
-    test = db.query(BaseTest).filter(BaseTest.id == test_id, BaseTest.deleted_at.is_(None)).first()
-    if not test:
-        raise HTTPException(status_code=404, detail="Test not found")
+    experiment = db.query(BaseExperiment).filter(BaseExperiment.id == experiment_id, BaseExperiment.deleted_at.is_(None)).first()
+    if not experiment:
+        raise HTTPException(status_code=404, detail="Experiment not found")
     
-    test_data=db.query(TestData).filter(TestData.test_id==test_id).all()
-    if not test_data:
-        raise HTTPException(status_code=404, detail="No test data found for the test")
+    experiment_data=db.query(ExperimentData).filter(ExperimentData.experiment_id==experiment_id).all()
+    if not experiment_data:
+        raise HTTPException(status_code=404, detail="No experiment data found for the experiment")
     
     metrics={}
 
-    for data in test_data:
+    for data in experiment_data:
         variant=data.variant
         if variant not in metrics:
             metrics[variant]={
@@ -227,5 +227,5 @@ def get_test_basic_metrics(test_id: int, db: Session = Depends(get_db)):
         values["average_engagement_minutes"]=(
             values["total_engagement_minutes"]/values["total_entries"]
         ) if values["total_entries"]>0 else 0.0
-    return {"test_id":test_id,"metrics":metrics}
+    return {"experiment_id":experiment_id,"metrics":metrics}
         
